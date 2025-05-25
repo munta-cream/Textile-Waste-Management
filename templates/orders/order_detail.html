@@ -1,0 +1,343 @@
+{% extends 'base.html' %}
+
+{% block title %}Order #{{ order.order_id }} - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h2>Order #{{ order.order_id }}</h2>
+    </div>
+    <div class="col-auto">
+        {% if order.status == 'PENDING' %}
+            {% if user.user_type == 'DESIGNER' and user.designer == order.design.designer %}
+                <div class="btn-group">
+                    <button type="button" class="btn btn-success" onclick="acceptOrder('{{ order.order_id }}')">
+                        Accept Order
+                    </button>
+                    <button type="button" class="btn btn-danger" onclick="rejectOrder('{{ order.order_id }}')">
+                        Reject Order
+                    </button>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- Order Details Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Order Details</h5>
+            </div>
+            <div class="card-body">                  <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Status</h6>
+                        <span class="badge {% if order.status == 'PENDING' %}bg-warning{% elif order.status == 'CONFIRMED' %}bg-info{% elif order.status == 'IN_PRODUCTION' %}bg-primary{% elif order.status == 'READY_FOR_DELIVERY' %}bg-info{% elif order.status == 'SHIPPED' %}bg-primary{% elif order.status == 'DELIVERED' %}bg-success{% elif order.status == 'CANCELED' %}bg-danger{% else %}bg-secondary{% endif %} fs-6">
+                            {{ order.get_status_display }}
+                        </span>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Order Date</h6>
+                        <p>{{ order.date_ordered|date:"F j, Y" }}</p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Buyer</h6>
+                        <p>{{ order.buyer.user.get_full_name }}</p>
+                        <p class="text-muted">{{ order.buyer.user.email }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Designer</h6>
+                        <p>{{ order.design.designer.user.get_full_name }}</p>
+                        <p class="text-muted">{{ order.design.designer.user.email }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Design Details Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Design Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        {% if order.design.image %}
+                            <img src="{{ order.design.image.url }}" alt="{{ order.design.name }}" 
+                                 class="img-fluid rounded">
+                        {% endif %}
+                    </div>
+                    <div class="col-md-8">
+                        <h4>{{ order.design.name }}</h4>
+                        <p class="text-muted">{{ order.design.description }}</p>                        <div class="row mt-3">
+                            <div class="col-6">
+                                <h6 class="text-muted">Category</h6>
+                                <p>{{ order.design.category.name|default:"N/A" }}</p>
+                            </div>
+                            <div class="col-6">
+                                <h6 class="text-muted">Style</h6>
+                                <p>{{ order.design.style|default:"N/A" }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Notes -->
+        {% if order.notes %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Order Notes</h5>
+                </div>
+                <div class="card-body">
+                    {{ order.notes|linebreaks }}
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Payment Information -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Payment Information</h5>
+                <span class="badge {% if order.payment_info.status == 'PENDING' %}bg-warning{% elif order.payment_info.status == 'AUTHORIZED' %}bg-info{% elif order.payment_info.status == 'COMPLETED' %}bg-success{% elif order.payment_info.status == 'FAILED' %}bg-danger{% elif order.payment_info.status == 'REFUNDED' %}bg-secondary{% else %}bg-secondary{% endif %}">
+                    {{ order.payment_info.get_status_display }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Payment ID</h6>
+                        <p>{{ order.payment_info.payment_id }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Method</h6>
+                        <p>{{ order.payment_info.get_method_display }}</p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Amount</h6>
+                        <p>${{ order.payment_info.amount|floatformat:2 }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Transaction Date</h6>
+                        <p>{{ order.payment_info.transaction_date|date:"F j, Y H:i" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delivery Information -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Delivery Information</h5>
+                <span class="badge {% if order.delivery_info.status == 'PROCESSING' %}bg-warning{% elif order.delivery_info.status == 'READY_FOR_PICKUP' %}bg-info{% elif order.delivery_info.status == 'IN_TRANSIT' %}bg-primary{% elif order.delivery_info.status == 'DELIVERED' %}bg-success{% elif order.delivery_info.status == 'FAILED' %}bg-danger{% elif order.delivery_info.status == 'RETURNED' %}bg-danger{% else %}bg-secondary{% endif %}">
+                    {{ order.delivery_info.get_status_display }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Tracking Number</h6>
+                        <p>{{ order.delivery_info.tracking_number }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Carrier</h6>
+                        <p>{{ order.delivery_info.carrier }}</p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Estimated Delivery</h6>
+                        <p>{{ order.delivery_info.estimated_delivery_date|date:"F j, Y" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Actual Delivery</h6>
+                        <p>{% if order.delivery_info.actual_delivery_date %}{{ order.delivery_info.actual_delivery_date|date:"F j, Y" }}{% else %}Pending{% endif %}</p>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <h6 class="text-muted">Delivery Address</h6>
+                    <p class="mb-0">{{ order.delivery_info.address|linebreaks }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">        <!-- Order Summary Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Order Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Design Base Price</span>
+                    <span>${{ order.design.price }}</span>
+                </div>
+                
+                {% if order.customizations %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Customizations</span>
+                        <span>
+                            {% comment %}Calculate customization cost manually if needed{% endcomment %}
+                        </span>
+                    </div>
+                    <ul class="list-unstyled ps-3 small">
+                        {% for option, value in order.customizations.items %}
+                        <li>{{ option }}: {{ value }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Quantity</span>
+                    <span>{{ order.quantity }}</span>
+                </div>
+                
+                <div class="d-flex justify-content-between mb-3">
+                    <span>Unit Price</span>
+                    <span>${{ order.total_price|floatformat:2 }}</span>
+                </div>
+                
+                <hr>
+                <div class="d-flex justify-content-between mb-3">
+                    <strong>Total Amount</strong>
+                    <strong>${{ order.total_price|floatformat:2 }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Timeline -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Order Timeline</h5>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-success"></div>
+                        <div class="timeline-content">
+                            <h6 class="mb-0">Order Placed</h6>
+                            <small class="text-muted">{{ order.created_at|date:"M j, Y H:i" }}</small>
+                        </div>
+                    </div>
+
+                    {% if order.accepted_at %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-0">Order Accepted</h6>
+                                <small class="text-muted">{{ order.accepted_at|date:"M j, Y H:i" }}</small>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if order.rejected_at %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-danger"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-0">Order Rejected</h6>
+                                <small class="text-muted">{{ order.rejected_at|date:"M j, Y H:i" }}</small>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if order.completed_at %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-0">Order Completed</h6>
+                                <small class="text-muted">{{ order.completed_at|date:"M j, Y H:i" }}</small>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.timeline {
+    position: relative;
+    padding: 0;
+    list-style: none;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 40px;
+    margin-bottom: 25px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+}
+
+.timeline-item:not(:last-child):before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 20px;
+    height: calc(100% + 5px);
+    width: 2px;
+    background-color: #e9ecef;
+}
+
+.timeline-content {
+    padding-bottom: 5px;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function acceptOrder(orderId) {
+        if (confirm('Are you sure you want to accept this order?')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/orders/${orderId}/accept/`;
+            
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            form.appendChild(csrfInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    function rejectOrder(orderId) {
+        if (confirm('Are you sure you want to reject this order?')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/orders/${orderId}/reject/`;
+            
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            form.appendChild(csrfInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+</script>
+{% endblock %}

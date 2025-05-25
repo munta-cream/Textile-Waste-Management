@@ -1,0 +1,338 @@
+{% extends 'base.html' %}
+
+{% block title %}Generate Reports - TFWMS{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>{% if factory_view %}Factory{% else %}Inventory{% endif %} Report Generator</h2>
+            <p class="text-muted">Generate comprehensive reports with detailed analytics and sustainability metrics</p>
+        </div>
+    </div>
+
+    <!-- Metrics Cards -->
+    {% if factory_view %}
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1">Total Waste Items</h6>
+                            <h3 class="mb-0">{{ metrics.total_items|default:"0" }}</h3>
+                        </div>
+                        <div>
+                            <i class="fas fa-box fa-3x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1">Total Quantity</h6>
+                            <h3 class="mb-0">{{ metrics.total_quantity|default:"0" }} kg</h3>
+                        </div>
+                        <div>
+                            <i class="fas fa-weight-hanging fa-3x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1">Sustainability Score</h6>
+                            <h3 class="mb-0">{{ metrics.avg_sustainability|default:"0"|floatformat:1 }}/10</h3>
+                        </div>
+                        <div>
+                            <i class="fas fa-leaf fa-3x opacity-50"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body">
+            <form id="reportForm" method="GET" action="{% url 'inventory:reports' %}">
+                <input type="hidden" name="action" value="export">
+                <div class="row g-3 align-items-end mb-4">
+                    <div class="col-md-4">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" required value="{{ default_start_date }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="end_date" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" required value="{{ default_end_date }}" max="{{ default_end_date }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="format" class="form-label">Export Format</label>
+                        <select class="form-select" id="format" name="format">
+                            <option value="html">View in Browser</option>
+                            <option value="excel">Download as Excel</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <!-- Report Contents Card -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">Report Contents</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <h6 class="text-muted">Basic Metrics</h6>
+                                    <ul class="list-unstyled ms-3">
+                                        <li><i class="fas fa-check text-success me-2"></i>Total items and quantities</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Status distribution</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Material breakdown</li>
+                                    </ul>
+                                </div>
+                                <div class="mb-3">
+                                    <h6 class="text-muted">Quality Analysis</h6>
+                                    <ul class="list-unstyled ms-3">
+                                        <li><i class="fas fa-check text-success me-2"></i>Quality grade distribution</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Quality trends over time</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h6 class="text-muted">Sustainability Impact</h6>
+                                    <ul class="list-unstyled ms-3">
+                                        <li><i class="fas fa-check text-success me-2"></i>Environmental impact metrics</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Sustainability scores</li>
+                                        <li><i class="fas fa-check text-success me-2"></i>Resource savings estimates</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preview Card -->
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">Preview</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="reportPreview" class="d-none">
+                                    <div class="text-center mb-3">
+                                        <i class="fas fa-file-alt fa-3x text-primary"></i>
+                                    </div>
+                                    <div class="preview-info">
+                                        <p class="period mb-2"></p>
+                                        <p class="estimate mb-3"></p>
+                                    </div>
+                                    <!-- Removed the alert that was causing the SweetAlert -->
+                                </div>
+                                <div id="initialMessage" class="text-center text-muted py-5">
+                                    <i class="fas fa-calendar-alt fa-2x mb-3"></i>
+                                    <p>Select a date range to preview report details</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-file-export me-2"></i>Generate Report
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    {% if factory_view %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Export Formats</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3">
+                            <i class="fas fa-file-alt fa-2x text-primary"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">HTML Preview</h6>
+                            <p class="text-muted mb-0 small">View report directly in browser</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3">
+                            <i class="fas fa-file-excel fa-2x text-success"></i>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">Excel Export</h6>
+                            <p class="text-muted mb-0 small">Analyze data with spreadsheets</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('reportForm');
+    const preview = document.getElementById('reportPreview');
+    const initial = document.getElementById('initialMessage');
+    const startDate = document.getElementById('start_date');
+    const endDate = document.getElementById('end_date');
+
+    // Set max date to today for both date pickers
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    startDate.setAttribute('max', todayStr);
+    endDate.setAttribute('max', todayStr);
+
+    // Update min date for end date picker based on start date
+    function updateEndDateMin() {
+        if (startDate.value) {
+            endDate.setAttribute('min', startDate.value);
+            
+            // If end date is now invalid (before start date), clear it
+            if (endDate.value && new Date(endDate.value) < new Date(startDate.value)) {
+                endDate.value = '';
+                Swal.fire({
+                    title: 'Date Range Adjusted',
+                    text: 'End date has been cleared because it was before the selected start date',
+                    icon: 'info',
+                    confirmButtonColor: '#3085d6'
+                });
+            }
+        } else {
+            endDate.removeAttribute('min');
+        }
+    }
+
+    // Real-time validation when date changes
+    function validateDates() {
+        const start = startDate.value ? new Date(startDate.value) : null;
+        const end = endDate.value ? new Date(endDate.value) : null;
+        
+        // Reset validation styling
+        startDate.classList.remove('is-invalid');
+        endDate.classList.remove('is-invalid');
+        
+        let isValid = true;
+        let errorMessage = '';
+        
+        // Start date future validation
+        if (start) {
+            const startTime = start.getTime();
+            const todayTime = new Date();
+            todayTime.setHours(0, 0, 0, 0);
+            if (startTime > todayTime.getTime()) {
+                startDate.classList.add('is-invalid');
+                isValid = false;
+                errorMessage = 'Start date cannot be in the future';
+            }
+        }
+        
+        // End date future validation
+        if (end) {
+            // Compare only the date part, ignore time
+            const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+            const todayDateOnly = new Date(todayTime.getFullYear(), todayTime.getMonth(), todayTime.getDate());
+            if (endDateOnly > todayDateOnly) {
+                endDate.classList.add('is-invalid');
+                isValid = false;
+                errorMessage = 'End date cannot be in the future';
+            }
+        }
+        
+        // Start/end date comparison - this validation is now redundant with the min attribute
+        // but we keep it as an extra layer of security
+        if (start && end) {
+            if (start > end) {
+                endDate.classList.add('is-invalid');
+                isValid = false;
+                errorMessage = 'End date cannot be before start date';
+            }
+        }
+        
+        return { isValid, errorMessage };
+    }
+
+    function updatePreview() {
+        const validation = validateDates();
+        const start = startDate.value ? new Date(startDate.value) : null;
+        const end = endDate.value ? new Date(endDate.value) : null;
+        
+        if (!validation.isValid || !start || !end) {
+            // Hide preview if dates are invalid
+            preview.classList.add('d-none');
+            initial.classList.remove('d-none');
+            return;
+        }
+        
+        // Show preview if dates are valid
+        preview.classList.remove('d-none');
+        initial.classList.add('d-none');
+        
+        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1; // Include both start and end days
+        
+        preview.querySelector('.period').textContent = 
+            `Period: ${start.toLocaleDateString()} - ${end.toLocaleDateString()}`;
+        preview.querySelector('.estimate').textContent = 
+            `Report will cover ${days} days of inventory data`;
+    }
+
+    // Add event listeners for real-time validation
+    startDate.addEventListener('change', function() {
+        updateEndDateMin(); // This will update the min attribute on the end date
+        validateDates();
+        updatePreview();
+    });
+    
+    endDate.addEventListener('change', function() {
+        validateDates();
+        updatePreview();
+    });
+    
+    // Initial setup
+    updateEndDateMin();
+    updatePreview();
+
+    // Form submission validation
+    form.addEventListener('submit', function(e) {
+        const validation = validateDates();
+        
+        if (!validation.isValid) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Invalid Date Range',
+                text: validation.errorMessage,
+                icon: 'error',
+                confirmButtonColor: '#3085d6'
+            });
+            return false;
+        }
+        
+        return true;
+    });
+});
+</script>
+{% endblock %}
+
+{% endblock %}

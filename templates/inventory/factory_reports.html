@@ -1,0 +1,208 @@
+{% extends 'base.html' %}
+
+{% block title %}Factory Reports - TFWMS{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'inventory:factory_inventory' %}">Factory Inventory</a></li>
+            <li class="breadcrumb-item active">Reports</li>
+        </ol>
+    </nav>
+
+    <!-- Factory Overview -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Your Items</h6>
+                    <h3 class="mb-0">{{ metrics.total_items }}</h3>
+                    <small class="text-muted">In inventory</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Total Weight</h6>
+                    <h3 class="mb-0">{{ metrics.total_quantity|floatformat:2 }} kg</h3>
+                    <small class="text-muted">Across all items</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Pending Review</h6>
+                    <h3 class="mb-0">{{ metrics.pending_review }}</h3>
+                    <small class="text-muted">Items awaiting approval</small>
+                </div>
+            </div>
+        </div>
+        <!-- Storage Usage card removed as requested -->
+    </div>
+
+    <!-- Monthly Analysis -->
+    <div class="card mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Monthly Analysis</h5>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary active" data-period="3">3 Months</button>
+                <button class="btn btn-outline-secondary" data-period="6">6 Months</button>
+                <button class="btn btn-outline-secondary" data-period="12">12 Months</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <canvas id="monthlyChart" height="300"></canvas>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Status Distribution -->
+        <div class="col-12 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Current Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th class="text-end">Items</th>
+                                    <th class="text-end">Weight (kg)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for status in status_distribution %}
+                                <tr>
+                                    <td>
+                                        <span class="badge {% if status.status == 'AVAILABLE' %}bg-success
+                                                       {% elif status.status == 'PENDING_REVIEW' %}bg-warning
+                                                       {% elif status.status == 'RESERVED' %}bg-info
+                                                       {% elif status.status == 'USED' %}bg-secondary
+                                                       {% else %}bg-danger{% endif %}">
+                                            {{ status.status }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">{{ status.count }}</td>
+                                    <td class="text-end">{{ status.total_quantity|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Storage Metrics section removed as requested -->
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="d-flex justify-content-center gap-3">
+        <a href="{% url 'inventory:reports' %}" class="btn btn-primary">
+            <i class="fas fa-chart-line me-2"></i>Generate Detailed Report
+        </a>
+        <a href="{% url 'inventory:waste_list' %}" class="btn btn-outline-primary">
+            <i class="fas fa-list me-2"></i>View All Items
+        </a>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Monthly Analysis Chart
+    const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+    
+    // Using the data passed from the view
+    const monthlyLabels = {{ monthly_labels|safe }};
+    const monthlyData = {{ monthly_data|safe }};
+    
+    const monthlyChart = new Chart(monthlyCtx, {
+        type: 'line',
+        data: {
+            labels: monthlyLabels,
+            datasets: [{
+                label: 'Items Added',
+                data: monthlyData,
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        title: function(tooltipItems) {
+                            return 'Month: ' + tooltipItems[0].label;
+                        },
+                        label: function(context) {
+                            return 'Items Added: ' + context.raw;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        drawBorder: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Number of Items'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Month'
+                    }
+                }
+            }
+        }
+    });
+
+    // Period selector buttons
+    document.querySelectorAll('[data-period]').forEach(button => {
+        button.addEventListener('click', function() {
+            const months = parseInt(this.dataset.period);
+            
+            // Update the chart to show the selected number of months
+            const updatedLabels = monthlyLabels.slice(-months);
+            const updatedData = monthlyData.slice(-months);
+            
+            monthlyChart.data.labels = updatedLabels;
+            monthlyChart.data.datasets[0].data = updatedData;
+            monthlyChart.update();
+            
+            // Update active button
+            document.querySelectorAll('[data-period]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            this.classList.add('active');
+        });
+    });
+});
+</script>
+{% endblock %}
+
+{% endblock %}

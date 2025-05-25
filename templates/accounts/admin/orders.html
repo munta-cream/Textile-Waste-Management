@@ -1,0 +1,599 @@
+{% extends "base.html" %}
+{% load custom_filters %}
+
+{% block title %}Manage Orders | Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <nav aria-label="breadcrumb" class="bg-light p-3 rounded mb-4 shadow-sm">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a href="{% url 'accounts:admin_dashboard' %}" class="text-decoration-none"><i class="fas fa-home"></i> Admin Dashboard</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Order Management</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h2 mb-0">Order Management</h1>
+        <div class="d-flex gap-2">
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-filter"></i> Filter
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" data-filter="all">All Orders</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#" data-filter="Pending">Pending Orders</a></li>
+                    <li><a class="dropdown-item" href="#" data-filter="Confirmed">Confirmed Orders</a></li>
+                    <li><a class="dropdown-item" href="#" data-filter="In Production">In Production Orders</a></li>
+                    <li><a class="dropdown-item" href="#" data-filter="Ready for Delivery">Ready for Delivery Orders</a></li>
+                    <li><a class="dropdown-item" href="#" data-filter="Shipped">Shipped Orders</a></li>
+                    <li><a class="dropdown-item" href="#" data-filter="Delivered">Delivered Orders</a></li>
+                    <li><a class="dropdown-item" href="#" data-filter="Canceled">Canceled Orders</a></li>
+                </ul>
+            </div>
+            <button class="btn btn-outline-secondary" id="refreshTable">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+    
+    <div class="card shadow">
+        <div class="card-header bg-gradient" style="background-color: #4158D0;background-image: linear-gradient(43deg, #4158D0 0%, #C850C0 46%, #FFCC70 100%);">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0 text-white">
+                    <i class="fas fa-shopping-cart me-2"></i>Orders Overview
+                </h5>
+                <div class="order-stats d-flex gap-3">
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-clock text-warning"></i> Pending: <span id="pendingCount">0</span>
+                    </span>
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-check-circle text-success"></i> Confirmed: <span id="confirmedCount">0</span>
+                    </span>
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-cog text-primary"></i> In Production: <span id="inProductionCount">0</span>
+                    </span>
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-truck text-info"></i> Ready for Delivery: <span id="readyForDeliveryCount">0</span>
+                    </span>
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-truck text-info"></i> Shipped: <span id="shippedCount">0</span>
+                    </span>
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-check-circle text-success"></i> Delivered: <span id="deliveredCount">0</span>
+                    </span>
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-times-circle text-danger"></i> Canceled: <span id="canceledCount">0</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="ordersTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Buyer</th>
+                            <th>Designer</th>
+                            <th>Date</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr class="align-middle">
+                            <td>
+                                <span class="fw-bold">#{{ order.id }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm bg-primary rounded-circle me-2 d-flex align-items-center justify-content-center">
+                                        <span class="text-white">{{ order.buyer.user.get_full_name|default:order.buyer.user.username|make_list|first|upper }}</span>
+                                    </div>
+                                    <div class="user-info">
+                                        <h6 class="mb-0">{{ order.buyer.user.get_full_name|default:order.buyer.user.username }}</h6>
+                                        <small class="text-muted">{{ order.buyer.user.email }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm bg-info rounded-circle me-2 d-flex align-items-center justify-content-center">
+                                        <span class="text-white">{{ order.design.designer.user.get_full_name|default:order.design.designer.user.username|make_list|first|upper }}</span>
+                                    </div>
+                                    {{ order.design.designer.user.get_full_name|default:order.design.designer.user.username }}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="far fa-calendar-alt me-2 text-muted"></i>
+                                    {{ order.order_date|date:"M d, Y" }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="fw-bold">${{ order.total_price }}</span>
+                            </td>
+                            <td>
+                                <span class="badge rounded-pill 
+                                    {% if order.status == 'PENDING' %}bg-warning text-dark
+                                    {% elif order.status == 'CONFIRMED' %}bg-info text-dark
+                                    {% elif order.status == 'IN_PRODUCTION' %}bg-primary text-white
+                                    {% elif order.status == 'READY_FOR_DELIVERY' %}bg-secondary text-white
+                                    {% elif order.status == 'SHIPPED' %}bg-info text-dark
+                                    {% elif order.status == 'DELIVERED' %}bg-success text-white
+                                    {% elif order.status == 'CANCELED' %}bg-danger text-white
+                                    {% else %}bg-secondary text-white{% endif %}">
+                                    <i class="fas 
+                                        {% if order.status == 'PENDING' %}fa-clock
+                                        {% elif order.status == 'CONFIRMED' %}fa-check-double
+                                        {% elif order.status == 'IN_PRODUCTION' %}fa-cog
+                                        {% elif order.status == 'READY_FOR_DELIVERY' %}fa-truck-loading
+                                        {% elif order.status == 'SHIPPED' %}fa-truck
+                                        {% elif order.status == 'DELIVERED' %}fa-check-circle
+                                        {% elif order.status == 'CANCELED' %}fa-times-circle
+                                        {% else %}fa-info-circle{% endif %} me-1"></i>
+                                    {{ order.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="dropdownMenuButton{{ order.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="dropdownMenuButton{{ order.id }}">
+                                        <li>
+                                            <button class="dropdown-item view-details-btn" data-id="{{ order.id }}">
+                                                <i class="fas fa-eye text-primary"></i> View Details
+                                            </button>
+                                        </li>
+                                        {% if order.status == 'PENDING' %}
+                                        <li>
+                                            <button class="dropdown-item approve-payment-btn" data-id="{{ order.id }}">
+                                                <i class="fas fa-check-circle text-success"></i> Approve Payment
+                                            </button>
+                                        </li>
+                                        {% endif %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <h6 class="dropdown-header">Update Status</h6>
+                                        </li>
+                                        {% for status, display in status_choices %}
+                                            {% if status in next_status_map|dict_get:order.status %}
+                                            <li>
+                                                <button class="dropdown-item status-btn" data-id="{{ order.id }}" data-status="{{ status }}">
+                                                    <span class="badge 
+                                                        {% if status == 'PENDING' %}bg-warning text-dark
+                                                        {% elif status == 'CONFIRMED' %}bg-info text-dark
+                                                        {% elif status == 'IN_PRODUCTION' %}bg-primary text-white
+                                                        {% elif status == 'READY_FOR_DELIVERY' %}bg-secondary text-white
+                                                        {% elif status == 'SHIPPED' %}bg-info text-dark
+                                                        {% elif status == 'DELIVERED' %}bg-success text-white
+                                                        {% elif status == 'CANCELED' %}bg-danger text-white
+                                                        {% else %}bg-secondary text-white{% endif %}">
+                                                        {{ display }}
+                                                    </span>
+                                                </button>
+                                            </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if orders|length == 0 %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="fas fa-box-open fa-3x mb-3"></i>
+                                    <h5>No orders found</h5>
+                                    <p>There are currently no orders in the system</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Order Details Modal -->
+<div class="modal fade" id="orderDetailsModal" tabindex="-1" aria-labelledby="orderDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-gradient text-white" style="background-color: #4158D0;background-image: linear-gradient(43deg, #4158D0 0%, #C850C0 46%, #FFCC70 100%);">
+                <h5 class="modal-title" id="orderDetailsModalLabel">
+                    <i class="fas fa-info-circle me-2"></i>Order Details
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6 class="card-title mb-3">
+                                    <i class="fas fa-shopping-cart text-primary me-2"></i>Order Information
+                                </h6>
+                                <div class="mb-2">
+                                    <small class="text-muted">Order ID</small>
+                                    <p class="mb-0 fw-bold" id="orderDetailId"></p>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Date</small>
+                                    <p class="mb-0" id="orderDetailDate"></p>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Status</small>
+                                    <p class="mb-0" id="orderDetailStatus"></p>
+                                </div>
+                                <div class="mb-0">
+                                    <small class="text-muted">Total</small>
+                                    <p class="mb-0 fw-bold" id="orderDetailTotal"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6 class="card-title mb-3">
+                                    <i class="fas fa-user text-info me-2"></i>Buyer Information
+                                </h6>
+                                <div class="mb-2">
+                                    <small class="text-muted">Name</small>
+                                    <p class="mb-0" id="orderDetailBuyer"></p>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Email</small>
+                                    <p class="mb-0" id="orderDetailEmail"></p>
+                                </div>
+                                <div class="mb-2">
+                                    <small class="text-muted">Phone</small>
+                                    <p class="mb-0" id="orderDetailPhone"></p>
+                                </div>
+                                <div class="mb-0">
+                                    <small class="text-muted">Address</small>
+                                    <p class="mb-0" id="orderDetailAddress"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title mb-3">
+                                    <i class="fas fa-palette text-success me-2"></i>Design Information
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-4 mb-2">
+                                        <small class="text-muted">Design</small>
+                                        <p class="mb-0" id="orderDetailDesign"></p>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <small class="text-muted">Designer</small>
+                                        <p class="mb-0" id="orderDetailDesigner"></p>
+                                    </div>
+                                    <div class="col-md-12">
+                                        <small class="text-muted">Description</small>
+                                        <p class="mb-0" id="orderDetailDescription"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h6 class="card-title mb-3">
+                                    <i class="fas fa-credit-card text-warning me-2"></i>Payment Information
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-4 mb-2">
+                                        <small class="text-muted">Payment Method</small>
+                                        <p class="mb-0" id="orderDetailPaymentMethod"></p>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <small class="text-muted">Payment Status</small>
+                                        <p class="mb-0" id="orderDetailPaymentStatus"></p>
+                                    </div>
+                                    <div class="col-md-4 mb-2">
+                                        <small class="text-muted">Transaction ID</small>
+                                        <p class="mb-0" id="orderDetailTransactionId"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CSS for custom styling -->
+<style>
+    .avatar-sm {
+        width: 32px;
+        height: 32px;
+        font-size: 0.875rem;
+    }
+    
+    .order-stats .badge {
+        font-size: 0.875rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    .table > :not(caption) > * > * {
+        padding: 1rem 0.75rem;
+    }
+    
+    .dropdown-item {
+        padding: 0.5rem 1rem;
+    }
+    
+    .dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .card {
+        border: none;
+        border-radius: 0.5rem;
+    }
+    
+    .modal-content {
+        border: none;
+        border-radius: 0.5rem;
+    }
+    
+    .modal-header {
+        border-top-left-radius: 0.5rem;
+        border-top-right-radius: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize DataTable
+        const table = $('#ordersTable').DataTable({
+            order: [[4, 'desc']], // Sort by date descending
+            columnDefs: [
+                { orderable: false, targets: 6 } // Disable sorting for actions column
+            ]
+        });
+        // Update order overview counts
+        function updateOrderStats() {
+            let pending = 0, confirmed = 0, inProduction = 0, readyForDelivery = 0, shipped = 0, delivered = 0, canceled = 0;
+            // Count over all table rows (ignore filters)
+            $(table.rows().nodes()).each(function() {
+                const statusText = $(this).find('td:eq(5) span.badge').text().trim();
+                if (statusText === 'Pending') pending++;
+                if (statusText === 'Confirmed') confirmed++;
+                if (statusText === 'In Production') inProduction++;
+                if (statusText === 'Ready for Delivery') readyForDelivery++;
+                if (statusText === 'Shipped') shipped++;
+                if (statusText === 'Delivered') delivered++;
+                if (statusText === 'Canceled') canceled++;
+            });
+            $('#pendingCount').text(pending);
+            $('#confirmedCount').text(confirmed);
+            $('#inProductionCount').text(inProduction);
+            $('#readyForDeliveryCount').text(readyForDelivery);
+            $('#shippedCount').text(shipped);
+            $('#deliveredCount').text(delivered);
+            $('#canceledCount').text(canceled);
+        }
+        // Recompute stats when table is redrawn (e.g., filters, pagination)
+        table.on('draw', updateOrderStats);
+        // Compute initial stats (filtered rows)
+        updateOrderStats();
+        
+        // Mappings for dynamic badge updates
+        const badgeClasses = {
+            'PENDING': 'bg-warning text-dark',
+            'PROCESSING': 'bg-primary text-white',
+            'SHIPPED': 'bg-info text-white',
+            'DELIVERED': 'bg-success text-white',
+            'CANCELED': 'bg-danger text-white'
+        };
+        const badgeIcons = {
+            'PENDING': 'fa-clock',
+            'PROCESSING': 'fa-cog',
+            'SHIPPED': 'fa-truck',
+            'DELIVERED': 'fa-check-circle',
+            'CANCELED': 'fa-times-circle'
+        };
+        // Function to update row badge and overview
+        function updateRowStatus(orderId, newStatus) {
+            const $row = $('#ordersTable button.status-btn[data-id="' + orderId + '"]').closest('tr');
+            const displayText = newStatus.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+            const html = `<span class="badge rounded-pill ${badgeClasses[newStatus]}"><i class="fas ${badgeIcons[newStatus]} me-1"></i>${displayText}</span>`;
+            $row.find('td:eq(5)').html(html);
+            updateOrderStats();
+        }
+
+        // Handle view details button click
+        $('.view-details-btn').click(function() {
+            const orderId = $(this).data('id');
+            
+            // In a real application, you would fetch the order details via AJAX
+            // For now, we'll just simulate this with dummy data
+            $('#orderDetailId').text(orderId);
+            $('#orderDetailDate').text('April 10, 2025'); // Simulated data
+            $('#orderDetailStatus').text('PENDING');
+            $('#orderDetailTotal').text('149.99');
+            $('#orderDetailBuyer').text('John Doe');
+            $('#orderDetailEmail').text('john.doe@example.com');
+            $('#orderDetailPhone').text('+1234567890');
+            $('#orderDetailAddress').text('123 Main St, Anytown, CA 12345');
+            $('#orderDetailDesign').text('Eco-friendly T-shirt Design');
+            $('#orderDetailDesigner').text('Jane Smith');
+            $('#orderDetailDescription').text('Sustainable t-shirt made from recycled fabric waste');
+            $('#orderDetailPaymentMethod').text('Credit Card');
+            $('#orderDetailPaymentStatus').text('Pending Verification');
+            $('#orderDetailTransactionId').text('TXN' + Math.floor(Math.random() * 1000000));
+            
+            // Show the modal
+            $('#orderDetailsModal').modal('show');
+        });
+        
+        // Handle approve payment button click
+        $('.approve-payment-btn').click(function() {
+            const orderId = $(this).data('id');
+            
+            // Show confirmation using SweetAlert2
+            Swal.fire({
+                title: 'Approve Payment?',
+                text: `Are you sure you want to approve payment for order #${orderId}?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, approve it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Send AJAX request to approve payment
+                    $.ajax({
+                        url: '{% url "accounts:admin_approve_payment" order_id=999 %}'.replace('999', orderId),
+                        type: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        success: function(response) {
+                            if (response.status === 'success') {
+                                Swal.fire({
+                                    title: 'Approved!',
+                                    text: response.message,
+                                    icon: 'success'
+                                }).then(() => {
+                                    location.reload();
+                                });
+                            } else {
+                                Swal.fire({
+                                    title: 'Error!',
+                                    text: response.message,
+                                    icon: 'error'
+                                });
+                            }
+                        },
+                        error: function() {
+                            Swal.fire({
+                                title: 'Error!',
+                                text: 'Something went wrong. Please try again.',
+                                icon: 'error'
+                            });
+                        }
+                    });
+                }
+            });
+        });
+        
+        // Handle status update button click
+        $(document).on('click', '.status-btn', function() {
+            const orderId = $(this).data('id');
+            const status = $(this).data('status');
+            
+            // Status names for better readability
+            const statusNames = {
+                'PENDING': 'Pending',
+                'PROCESSING': 'Processing',
+                'SHIPPED': 'Shipped',
+                'DELIVERED': 'Delivered',
+                'CANCELED': 'Cancelled'
+            };
+            
+            // Show confirmation using SweetAlert2
+            Swal.fire({
+                title: 'Update Order Status?',
+                text: `Are you sure you want to update order #${orderId} status to ${statusNames[status]}?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, update it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Send AJAX request to update status
+                    $.ajax({
+                        url: '{% url "accounts:admin_update_order_status" order_id=999 %}'.replace('999', orderId),
+                        type: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        data: {
+                            status: status
+                        },
+                        success: function(response) {
+                            if (response.status === 'success') {
+                                Swal.fire({
+                                    title: 'Updated!',
+                                    text: response.message,
+                                    icon: 'success'
+                                }).then(() => {
+                                    updateRowStatus(orderId, status);
+                                });
+                            } else {
+                                Swal.fire({
+                                    title: 'Error!',
+                                    text: response.message,
+                                    icon: 'error'
+                                });
+                            }
+                        },
+                        error: function() {
+                            Swal.fire({
+                                title: 'Error!',
+                                text: 'Something went wrong. Please try again.',
+                                icon: 'error'
+                            });
+                        }
+                    });
+                }
+            });
+        });
+        
+        // Helper function to get CSRF token from cookies
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Filter orders by status (display text) on Status column
+        $('[data-filter]').on('click', function(e) {
+            e.preventDefault();
+            var filter = $(this).data('filter');
+            if (filter === 'all') {
+                table.column(5).search('').draw();
+            } else {
+                table.column(5).search(filter, false, false).draw();
+            }
+        });
+        // Refresh: clear Status column filter only
+        $('#refreshTable').on('click', function() {
+            location.reload();
+        });
+    });
+</script>
+{% endblock %}
